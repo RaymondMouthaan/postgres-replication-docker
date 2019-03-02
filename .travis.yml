@@ -5,14 +5,14 @@ services:
 
 env:
   # primary
-  - ARCH=amd64 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=x86_64 DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="amd64"
-  - ARCH=arm32v6 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=arm DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="arm32v6"
-  - ARCH=arm64v8 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=aarch64 DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="arm64v8"
+  - DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="amd64" ARCH=amd64 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=x86_64
+  - DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="arm32v6" ARCH=arm32v6 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=arm
+  - DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="arm64v8" ARCH=arm64v8 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=aarch64
 
   # replica
-  - ARCH=amd64 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=x86_64 GOSU_VERSION=1.11 GOSU_ARCH=amd64 DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="amd64"
-  - ARCH=arm32v6 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=arm GOSU_VERSION=1.11 GOSU_ARCH=arm DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="arm32v6"
-  - ARCH=arm64v8 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=aarch64 GOSU_VERSION=1.11 GOSU_ARCH=arm64 DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="arm64v8"
+  - DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="amd64" ARCH=amd64 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=x86_64 GOSU_VERSION=1.11 GOSU_ARCH=amd64
+  - DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="arm32v6" ARCH=arm32v6 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=arm GOSU_VERSION=1.11 GOSU_ARCH=arm
+  - DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="arm64v8" ARCH=arm64v8 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=aarch64 GOSU_VERSION=1.11 GOSU_ARCH=arm64
 
 before_script:
   # setup multi-arch build support
