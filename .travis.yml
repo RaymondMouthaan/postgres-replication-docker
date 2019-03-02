@@ -4,7 +4,7 @@ services:
   - docker
 
 env:
-  - ARCH=arm32v6 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=arm DOCKERFILE="Dockerfile.primary" TAG_SUFFIX="arm32v6"
+  - ARCH=arm32v6 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=arm DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="arm32v6"
 
 before_script:
   # setup multi-arch build support
@@ -21,9 +21,9 @@ script:
   - export TARGET_IMAGE_TAG=$(if [ "$TRAVIS_BRANCH" = "master" ]; then if [ "$TAG_SUFFIX" = "" ]; then echo "latest"; else echo "$TAG_SUFFIX"; fi; else if [ "$TAG_SUFFIX" = "" ]; then echo "$TRAVIS_BRANCH"; else echo "$TRAVIS_BRANCH-$TAG_SUFFIX"; fi; fi)
 
   # pull the existing image from the registry, if it exists, to use as a build cache
-  - docker pull $TARGET_IMAGE:$TARGET_IMAGE_TAG && export IMAGE_CACHE="--cache-from $TARGET_IMAGE:$TARGET_IMAGE_TAG" || export IMAGE_CACHE=""
+  - docker pull $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG && export IMAGE_CACHE="--cache-from $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG" || export IMAGE_CACHE=""
 
   # build the image, login and push
-  - docker build -f $DOCKERFILE $IMAGE_CACHE --build-arg ARCH=$ARCH --build-arg QEMU_ARCH=$QEMU_ARCH -t $TARGET_IMAGE:$TARGET_IMAGE_TAG .
+  - docker build -f $DOCKERFILE $IMAGE_CACHE --build-arg ARCH=$ARCH --build-arg QEMU_ARCH=$QEMU_ARCH -t $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG .
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-  - docker push $TARGET_IMAGE:$TARGET_IMAGE_TAG
+  - docker push $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG
