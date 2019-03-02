@@ -1,6 +1,10 @@
-FROM postgres:9.6-alpine
 
-ENV GOSU_VERSION 1.10
+ARG ARCH
+FROM ${ARCH}/postgres:11-alpine
+
+ENV GOSU_VERSION 1.11
+
+// https://github.com/tianon/gosu/releases/download/1.11/gosu-armhf
 
 ADD ./gosu /usr/bin/
 RUN chmod +x /usr/bin/gosu

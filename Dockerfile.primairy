@@ -1,0 +1,11 @@
+ARG ARCH
+FROM ${ARCH}/postgres:11-alpine
+
+ARG QEMU_ARCH
+COPY tmp/qemu-${QEMU_ARCH}-static /usr/bin/qemu-${QEMU_ARCH}-static
+RUN chmod +x /usr/bin/qemu-${QEMU_ARCH}-static
+
+RUN apk add --update htop
+
+COPY ./setup-primary.sh /docker-entrypoint-initdb.d/setup-primary.sh
+RUN chmod 0666 /docker-entrypoint-initdb.d/setup-primary.sh
