@@ -4,28 +4,37 @@ services:
   - docker
 
 env:
-  # primary
-  - DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="amd64" ARCH=amd64 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=x86_64
-  - DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="arm32v6" ARCH=arm32v6 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=arm
-  - DOCKERFILE="Dockerfile.primary" ROLE="primary" TAG_SUFFIX="arm64v8" ARCH=arm64v8 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=aarch64
+  global:
+    - POSTGRES_VERSION=11.2
+    - QEMU_VERSION=v3.1.0-2
+    - GOSU_VERSION=1.11
 
-  # replica
-  - DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="amd64" ARCH=amd64 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=x86_64 GOSU_VERSION=1.11 GOSU_ARCH=amd64
-  - DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="arm32v6" ARCH=arm32v6 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=arm GOSU_VERSION=1.11 GOSU_ARCH=arm
-  - DOCKERFILE="Dockerfile.replica" ROLE="replica" TAG_SUFFIX="arm64v8" ARCH=arm64v8 QEMU_VERSION=v3.1.0-2 QEMU_ARCH=aarch64 GOSU_VERSION=1.11 GOSU_ARCH=arm64
+  matrix:
+    # primary
+    - DOCKERFILE=Dockerfile.primary ROLE=primary TAG_SUFFIX=amd64 ARCH=amd64 QEMU_ARCH=x86_64
+    - DOCKERFILE=Dockerfile.primary ROLE=primary TAG_SUFFIX=arm32v6 ARCH=arm32v6 QEMU_ARCH=arm
+    - DOCKERFILE=Dockerfile.primary ROLE=primary TAG_SUFFIX=arm64v8 ARCH=arm64v8 QEMU_ARCH=aarch64
+
+    # replica
+    - DOCKERFILE=Dockerfile.replica ROLE=replica TAG_SUFFIX=amd64 ARCH=amd64 QEMU_ARCH=x86_64 GOSU_ARCH=amd64
+    - DOCKERFILE=Dockerfile.replica ROLE=replica TAG_SUFFIX=arm32v6 ARCH=arm32v6 QEMU_ARCH=arm GOSU_ARCH=arm
+    - DOCKERFILE=Dockerfile.replica ROLE=replica TAG_SUFFIX=arm64v8 ARCH=arm64v8 QEMU_ARCH=aarch64 GOSU_ARCH=arm64
 
 before_script:
   # setup multi-arch build support
   - sudo apt-get --yes --no-install-recommends install binfmt-support qemu-user-static
   - docker run --rm --privileged multiarch/qemu-user-static:register --reset
-  - mkdir tmp && cd tmp
-  - curl -L -o qemu-x86_64-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/$QEMU_VERSION/qemu-x86_64-static.tar.gz && tar xzf qemu-x86_64-static.tar.gz
-  - curl -L -o qemu-arm-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/$QEMU_VERSION/qemu-arm-static.tar.gz && tar xzf qemu-arm-static.tar.gz
-  - curl -L -o qemu-aarch64-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/$QEMU_VERSION/qemu-aarch64-static.tar.gz && tar xzf qemu-aarch64-static.tar.gz
-  - curl -L -o gosu-amd64 https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-amd64
-  - curl -L -o gosu-arm https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-armhf
-  - curl -L -o gosu-arm64 https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-arm64
-  - cd ..
+  - mkdir tmp
+  # qemu & gozu
+  ->-
+    pushd tmp &&
+    curl -L -o qemu-x86_64-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/$QEMU_VERSION/qemu-x86_64-static.tar.gz && tar xzf qemu-x86_64-static.tar.gz &&
+    curl -L -o qemu-arm-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/$QEMU_VERSION/qemu-arm-static.tar.gz && tar xzf qemu-arm-static.tar.gz &&
+    curl -L -o qemu-aarch64-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/$QEMU_VERSION/qemu-aarch64-static.tar.gz && tar xzf qemu-aarch64-static.tar.gz &&
+    curl -L -o gosu-amd64 https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-amd64 &&
+    curl -L -o gosu-arm https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-armhf &&
+    curl -L -o gosu-arm64 https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-arm64 &&
+    popd
 
 script:
   # generate the image tag
@@ -35,7 +44,7 @@ script:
   - docker pull $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG && export IMAGE_CACHE="--cache-from $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG" || export IMAGE_CACHE=""
 
   # build the image, login and push
-  - docker build -f $DOCKERFILE $IMAGE_CACHE --build-arg ARCH=$ARCH --build-arg QEMU_ARCH=$QEMU_ARCH --build-arg GOSU_ARCH=$GOSU_ARCH -t $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG .
+  - docker build -f $DOCKERFILE $IMAGE_CACHE --build-arg ARCH=$ARCH --build-arg POSTGRES_BASE=postgres:${POSTGRES_VERSION}-alpine --build-arg QEMU_ARCH=$QEMU_ARCH --build-arg GOSU_ARCH=$GOSU_ARCH -t $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG .
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
   - docker push $TARGET_IMAGE-$ROLE:$TARGET_IMAGE_TAG
 
@@ -67,21 +76,21 @@ jobs:
         - docker manifest annotate $TARGET_IMAGE-primary:$MANIFEST_SUFFIX $TARGET_IMAGE-primary:${TAG_PREFIX}arm64v8 --os=linux --arch=arm64 --variant=v8
         - docker manifest push $TARGET_IMAGE-primary:$MANIFEST_SUFFIX
 
-        # amd64
+        ## amd64
         - docker manifest create $TARGET_IMAGE-primary:${TAG_PREFIX}amd64 $TARGET_IMAGE-primary:${TAG_PREFIX}amd64
         - docker manifest push $TARGET_IMAGE-primary:${TAG_PREFIX}amd64
 
-        # arm32v6
+        ## arm32v6
         - docker manifest create $TARGET_IMAGE-primary:${TAG_PREFIX}arm32v6 $TARGET_IMAGE-primary:${TAG_PREFIX}arm32v6
         - docker manifest annotate $TARGET_IMAGE-primary:${TAG_PREFIX}arm32v6 $TARGET_IMAGE-primary:${TAG_PREFIX}arm32v6 --os=linux --arch=arm --variant=v6
         - docker manifest push $TARGET_IMAGE-primary:${TAG_PREFIX}arm32v6
 
-        # arm64v8
+        ## arm64v8
         - docker manifest create $TARGET_IMAGE-primary:${TAG_PREFIX}arm64v8 $TARGET_IMAGE-primary:${TAG_PREFIX}arm64v8
         - docker manifest annotate $TARGET_IMAGE-primary:${TAG_PREFIX}arm64v8 $TARGET_IMAGE-primary:${TAG_PREFIX}arm64v8 --os=linux --arch=arm64 --variant=v8
         - docker manifest push $TARGET_IMAGE-primary:${TAG_PREFIX}arm64v8
 
-        # replica
+        ## replica
         - export MANIFEST_SUFFIX=$(if [ "$TRAVIS_BRANCH" = "master" ]; then echo "latest"; else echo "$TRAVIS_BRANCH"; fi)
         - export TAG_PREFIX=$(if [ "$TRAVIS_BRANCH" = "master" ]; then echo ""; else echo "$TRAVIS_BRANCH-"; fi)
         - docker manifest create $TARGET_IMAGE-replica:$MANIFEST_SUFFIX $TARGET_IMAGE-replica:${TAG_PREFIX}amd64 $TARGET_IMAGE-replica:${TAG_PREFIX}arm32v6 $TARGET_IMAGE-replica:${TAG_PREFIX}arm64v8
@@ -89,16 +98,16 @@ jobs:
         - docker manifest annotate $TARGET_IMAGE-replica:$MANIFEST_SUFFIX $TARGET_IMAGE-replica:${TAG_PREFIX}arm64v8 --os=linux --arch=arm64 --variant=v8
         - docker manifest push $TARGET_IMAGE-replica:$MANIFEST_SUFFIX
 
-        # amd64
+        ## amd64
         - docker manifest create $TARGET_IMAGE-replica:${TAG_PREFIX}amd64 $TARGET_IMAGE-replica:${TAG_PREFIX}amd64
         - docker manifest push $TARGET_IMAGE-replica:${TAG_PREFIX}amd64
 
-        # arm32v6
+        ## arm32v6
         - docker manifest create $TARGET_IMAGE-replica:${TAG_PREFIX}arm32v6 $TARGET_IMAGE-replica:${TAG_PREFIX}arm32v6
         - docker manifest annotate $TARGET_IMAGE-replica:${TAG_PREFIX}arm32v6 $TARGET_IMAGE-replica:${TAG_PREFIX}arm32v6 --os=linux --arch=arm --variant=v6
         - docker manifest push $TARGET_IMAGE-replica:${TAG_PREFIX}arm32v6
 
-        # arm64v8
+        ## arm64v8
         - docker manifest create $TARGET_IMAGE-replica:${TAG_PREFIX}arm64v8 $TARGET_IMAGE-replica:${TAG_PREFIX}arm64v8
         - docker manifest annotate $TARGET_IMAGE-replica:${TAG_PREFIX}arm64v8 $TARGET_IMAGE-replica:${TAG_PREFIX}arm64v8 --os=linux --arch=arm64 --variant=v8
         - docker manifest push $TARGET_IMAGE-replica:${TAG_PREFIX}arm64v8
